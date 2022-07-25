@@ -57,6 +57,12 @@ add_executable(point_cloud src/point_cloud.cpp)
 target_link_libraries(point_cloud
    ${catkin_LIBRARIES}
 )
+
+add_executable(button_mode src/button_mode.cpp)
+target_link_libraries(button_mode
+   ${catkin_LIBRARIES}
+)
+
 #############
 ## Install ##
 #############
@@ -78,6 +84,7 @@ install(TARGETS
   cube
   menu
   point_cloud
+  button_mode
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
