@@ -35,15 +35,19 @@
 
 #include <tf/transform_broadcaster.h>
 #include <tf/tf.h>
+#include <std_msgs/Bool.h>
 
 #include <math.h>
 
 using namespace visualization_msgs;
 
+#define _MTM 0
+#define _PSM 1 
 
 // %Tag(vars)%
 boost::shared_ptr<interactive_markers::InteractiveMarkerServer> server;
-interactive_markers::MenuHandler menu_handler;
+ros::Publisher publisher_mm_;
+std_msgs::Bool mm_mode;
 // %EndTag(vars)%
 
 
@@ -114,7 +118,7 @@ void frameCallback(const ros::TimerEvent&)
 // %EndTag(frameCallback)%
 
 // %Tag(processFeedback)%
-void processFeedback( const visualization_msgs::InteractiveMarkerFeedbackConstPtr &feedback )
+void processFeedback( const visualization_msgs::InteractiveMarkerFeedbackConstPtr &feedback, int mode )
 {
   std::ostringstream s;
   s << "Feedback from marker '" << feedback->marker_name << "' "
@@ -129,45 +133,34 @@ void processFeedback( const visualization_msgs::InteractiveMarkerFeedbackConstPt
                    << " in frame " << feedback->header.frame_id;
   }
 
-  switch ( feedback->event_type )
-  {
-    case visualization_msgs::InteractiveMarkerFeedback::BUTTON_CLICK:
-      ROS_INFO_STREAM( s.str() << ": button click" << mouse_point_ss.str() << "." );
-      break;
+//   switch ( feedback->event_type )
+//   {
+//     case visualization_msgs::InteractiveMarkerFeedback::BUTTON_CLICK:
+//       ROS_INFO_STREAM( s.str() << ": button click" << mouse_point_ss.str() << "." );
+//       break;
 
-    case visualization_msgs::InteractiveMarkerFeedback::MENU_SELECT:
-      ROS_INFO_STREAM( s.str() << ": menu item " << feedback->menu_entry_id << " clicked" << mouse_point_ss.str() << "." );
-      break;
+//     case visualization_msgs::InteractiveMarkerFeedback::MOUSE_DOWN:
+//       ROS_INFO_STREAM( s.str() << ": mouse down" << mouse_point_ss.str() << "." );
+//       break;
 
-    case visualization_msgs::InteractiveMarkerFeedback::POSE_UPDATE:
-      ROS_INFO_STREAM( s.str() << ": pose changed"
-          << "\nposition = "
-          << feedback->pose.position.x
-          << ", " << feedback->pose.position.y
-          << ", " << feedback->pose.position.z
-          << "\norientation = "
-          << feedback->pose.orientation.w
-          << ", " << feedback->pose.orientation.x
-          << ", " << feedback->pose.orientation.y
-          << ", " << feedback->pose.orientation.z
-          << "\nframe: " << feedback->header.frame_id
-          << " time: " << feedback->header.stamp.sec << "sec, "
-          << feedback->header.stamp.nsec << " nsec" );
-      break;
-
-    case visualization_msgs::InteractiveMarkerFeedback::MOUSE_DOWN:
-      ROS_INFO_STREAM( s.str() << ": mouse down" << mouse_point_ss.str() << "." );
-      break;
-
-    case visualization_msgs::InteractiveMarkerFeedback::MOUSE_UP:
-      ROS_INFO_STREAM( s.str() << ": mouse up" << mouse_point_ss.str() << "." );
-      break;
+//     case visualization_msgs::InteractiveMarkerFeedback::MOUSE_UP:
+//       ROS_INFO_STREAM( s.str() << ": mouse up" << mouse_point_ss.str() << "." );
+//       break;
+//   }
+  
+  if (mode == _MTM) {
+    ROS_INFO_STREAM("MTM measurement");
+    mm_mode.data = true;
+  } else {
+    ROS_INFO_STREAM("PSM measurement");
+    mm_mode.data = false;
   }
 
+  publisher_mm_.publish(mm_mode);
   server->applyChanges();
 }
 // %EndTag(processFeedback)%
-
+ 
 double rand( double min, double max )
 {
   double t = (double)rand() / (double)RAND_MAX;
@@ -175,7 +168,7 @@ double rand( double min, double max )
 }
 
 // %Tag(Button)%
-void makeButtonMarker( const tf::Vector3& position, std::string str )
+void makeButtonMarker( const tf::Vector3& position, std::string str, int mode )
 {
   InteractiveMarker int_marker;
   int_marker.header.frame_id = "base_link";
@@ -190,7 +183,7 @@ void makeButtonMarker( const tf::Vector3& position, std::string str )
   control.interaction_mode = InteractiveMarkerControl::BUTTON;
   control.name = str + "_button_control";
 
-  // Marker marker = makeBox( int_marker );
+//   Marker marker = makeBox( int_marker );
   Marker marker = makeText( int_marker, str );
 
   control.markers.push_back( marker );
@@ -198,7 +191,11 @@ void makeButtonMarker( const tf::Vector3& position, std::string str )
   int_marker.controls.push_back(control);
 
   server->insert(int_marker);
-  server->setCallback(int_marker.name, &processFeedback);
+
+  if (mode == _PSM)
+    server->setCallback(int_marker.name, boost::bind(&processFeedback, _1, mode));
+  else
+    server->setCallback(int_marker.name, boost::bind(&processFeedback, _1, mode));
 }
 // %EndTag(Button)%
 
@@ -207,6 +204,7 @@ int main(int argc, char** argv)
 {
   ros::init(argc, argv, "button_mode");
   ros::NodeHandle n;
+  publisher_mm_ = n.advertise<std_msgs::Bool>("/rvinci_measurement_MTM", 10);
 
   // create a timer to update the published transforms
   ros::Timer frame_timer = n.createTimer(ros::Duration(0.01), frameCallback);
@@ -216,13 +214,13 @@ int main(int argc, char** argv)
   ros::Duration(0.1).sleep();
 
   tf::Vector3 position;
-  position = tf::Vector3( -1, 0, 0); 
-  makeButtonMarker( position, "Test1" );
-  position = tf::Vector3( 1, 0, 0); 
-  makeButtonMarker( position, "Test2" );
-
+  position = tf::Vector3( -2, 0, 0); 
+  makeButtonMarker( position, "PSM", _PSM);
+  position = tf::Vector3( 2, 0, 0); 
+  makeButtonMarker( position, "MTM", _MTM );
 
   server->applyChanges();
+//   publisher_mm_.publish(mm_mode);
 
   ros::spin();
 
