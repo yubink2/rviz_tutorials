@@ -214,9 +214,9 @@ int main(int argc, char** argv)
   ros::Duration(0.1).sleep();
 
   tf::Vector3 position;
-  position = tf::Vector3( -2, 0, 0); 
+  position = tf::Vector3( -3, 0, 0); 
   makeButtonMarker( position, "PSM", _PSM);
-  position = tf::Vector3( 2, 0, 0); 
+  position = tf::Vector3( 3, 0, 0); 
   makeButtonMarker( position, "MTM", _MTM );
 
   server->applyChanges();
